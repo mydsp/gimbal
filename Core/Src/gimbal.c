@@ -30,13 +30,17 @@ void Gimbal_AttitudeControl(void)
   MPU_Attitude att;
   MPU_GetAttitude(&att);
 
-  /* 取反：面包板倾斜方向与云台跟随方向相反 */
-  uint8_t pan  = (uint8_t)(90 - att.roll);
-  uint8_t tilt = (uint8_t)(90 + att.pitch);
-  if (pan  > 180) pan  = 180;
-  if (tilt > 180) tilt = 180;
+  /* 取反：面包板倾斜方向与云台跟随方向相反。
+   * 关键：先用有符号中间量算好角度，再钳位到 [0,180]，最后才转 uint8。
+   * 若先转 uint8 再钳位，负数会回绕成 246 并被钳到 180（而非 0），两端必现错误。 */
+  int pan_raw  = 90 - (int)att.roll;
+  int tilt_raw = 90 + (int)att.pitch;
+  if (pan_raw  < 0)   pan_raw  = 0;
+  if (pan_raw  > 180) pan_raw  = 180;
+  if (tilt_raw < 0)   tilt_raw = 0;
+  if (tilt_raw > 180) tilt_raw = 180;
 
-  Servo_SetAngle(pan, tilt);
+  Servo_SetAngle((uint8_t)pan_raw, (uint8_t)tilt_raw);
   Servo_GetState(&state.pan_deg, &state.tilt_deg, &state.pan_pwm, &state.tilt_pwm);
 }
 
